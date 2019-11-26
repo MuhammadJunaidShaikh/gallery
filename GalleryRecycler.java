@@ -3,13 +3,16 @@ package com.example.checkevemaster.gallery;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 
 import com.bumptech.glide.Glide;
 import com.example.checkevemaster.R;
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,11 +39,14 @@ public class GalleryRecycler extends RecyclerView.Adapter<GalleryRecycler.ImageH
         return new ImageHolder(view, cli);
     }
 
+    private static final String TAG = "GalleryRecycler";
+
     @Override
     public void onBindViewHolder(@NonNull ImageHolder holder, final int position) {
-        GalleryModel model=list.get(position);
-        String image=model.getImageURL();
-        Glide.with(context).load(image).into(holder.imageView);
+        GalleryModel model = list.get(position);
+        String image = model.getImageURL();
+        Log.d(TAG, "onBindViewHolder: " + model.getImageURL());
+        Picasso.with(context).load(image).into(holder.imageView);
         holder.imageView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
