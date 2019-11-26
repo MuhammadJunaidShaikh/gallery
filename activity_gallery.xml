@@ -6,25 +6,42 @@
     android:layout_height="match_parent"
     android:background="@color/colorBack"
     tools:context=".gallery.GalleryActivity">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/galleryActivityToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/colorPrimaryDark">
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@color/colorPrimaryDark"
+            android:drawableStart="@drawable/ic_arrow_back"
+            android:drawablePadding="10dp"
+            android:text="@string/gallery"
+            android:textColor="@color/colorAccent" />
+    </androidx.appcompat.widget.Toolbar>
+
     <androidx.core.widget.ContentLoadingProgressBar
+        android:id="@+id/advertProfileProgressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerHorizontal="true"
         android:layout_alignParentTop="true"
-        android:id="@+id/advertProfileProgressBar"
-        android:visibility="gone"
-        />
+        android:layout_centerHorizontal="true"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/advertProfileImageRecycler"
+        android:id="@+id/galleryActivityImageRecycler"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        />
+        android:layout_above="@+id/galleryActivityArc"
+        android:layout_below="@+id/galleryActivityToolbar" />
 
     <com.github.florent37.shapeofview.shapes.ArcView
+        android:id="@+id/galleryActivityArc"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/advertProfileArc"
         android:layout_alignParentBottom="true"
         app:shape_arc_cropDirection="inside"
         app:shape_arc_height="20dp"
@@ -34,26 +51,27 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@color/colorPrimaryDark"
-            android:padding="16dp">
+            >
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/advertProfileAddPictureFAB"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerHorizontal="true"
                 android:layout_marginTop="10dp"
                 android:src="@drawable/ic_add"
-                android:id="@+id/advertProfileAddPictureFAB"
-                app:backgroundTint="@color/colorPrimary"
-                app:rippleColor="@color/colorPrimaryDark"
+                app:backgroundTint="@color/colorPrimaryDark"
+                app:rippleColor="@color/starColor"
                 tools:ignore="RelativeOverlap" />
+
             <ImageButton
+                android:id="@+id/advertProfileUploadButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:src="@drawable/ic_file_upload"
-                android:background="@color/colorPrimary"
-                android:padding="16dp"
-                android:id="@+id/advertProfileUploadButton"
                 android:layout_alignParentEnd="true"
+                android:background="@drawable/shape"
+                android:layout_margin="16dp"
+                android:src="@drawable/ic_file_upload"
                 tools:ignore="ContentDescription" />
         </RelativeLayout>
     </com.github.florent37.shapeofview.shapes.ArcView>
