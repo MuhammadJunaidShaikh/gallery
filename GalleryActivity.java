@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import com.example.checkevemaster.R;
 import com.example.checkevemaster.preferencesclasses.UserAdverts;
@@ -29,6 +30,7 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
@@ -52,7 +54,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
     private Context context;
     private FirebaseFirestore db;
     //image selection
-    private ArrayList<String> selectedImages;
+    private ArrayList<GalleryModel> selectedImages;
     private static final int IMAGE_PICK_REQUEST = 200;
     private List<GalleryModel> imageList;
     private ProgressBar progressBar;
@@ -60,7 +62,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
     private Handler handler;
     private UserAdverts userAdverts;
     private FirebaseUser user;
-
+    ImageButton uploadButton;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,6 +83,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
 
         progressDialog = new ProgressDialog(context);
         initOtherViews();
+       getImages();
     }
 
     private synchronized void initOtherViews() {
@@ -95,7 +98,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
         FloatingActionButton addImageFAB = findViewById(R.id.advertProfileAddPictureFAB);
         addImageFAB.setOnClickListener(onAddImageButtonClick);
         // upload buttton
-        ImageButton uploadButton = findViewById(R.id.advertProfileUploadButton);
+        uploadButton = findViewById(R.id.advertProfileUploadButton);
         uploadButton.setVisibility(View.GONE);
         uploadButton.setOnClickListener(onUploadButtonClick);
 
@@ -132,11 +135,14 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
     private synchronized void uploadImages() {
 
         String advert = userSession.getUserId();
+
         if (advert != null && selectedImages != null) {
-            for (String path : selectedImages) {
+
+            for (GalleryModel path : selectedImages) {
+
                 GalleryModel model = new GalleryModel();
                 model.setUploadTime(System.currentTimeMillis());
-                model.setImageURL(path);
+                model.setImageURL(path.getImageURL());
                 model.setImageID(System.currentTimeMillis() + "_" + counter + ".jpeg");
                 counter++;
                 uploadImage(advert, model);
@@ -185,6 +191,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
                     @Override
                     public void onComplete(@NonNull Task<Uri> task) {
                         if (task.isSuccessful()) {
+                            Toast.makeText(context , "INto success", Toast.LENGTH_SHORT).show();
                             model.setImageURL(String.valueOf(task.getResult()));
                             progrees += 30;
                             progressDialog.setMessage("Uploading slideshow... " + progrees + "%");
@@ -219,16 +226,28 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
 
 
     private synchronized void getImages() {
-        String uid = userSession.getUserId();
-        if (uid != null) {
-            db.collection(OtherConstants.ADVERTISEMENT).document(uid).collection(OtherConstants.GALLERY)
+        String advert = userSession.getUserId();
+        if (advert != null) {
+
+            db.collection(OtherConstants.ADVERTISEMENT).document(advert).collection(OtherConstants.GALLERY)
                     .get().addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
                 @Override
                 public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
-                    imageList = queryDocumentSnapshots.toObjects(GalleryModel.class);
+
+                    for(DocumentSnapshot snapshot : queryDocumentSnapshots  ){
+                        GalleryModel galleryModel = snapshot.toObject(GalleryModel.class);
+                        if(galleryModel!=null){
+
+                            imageList.add(galleryModel);
+
+                        }
+
+                    }
+
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
+                            Toast.makeText(context , "TEeeeeest On Success",Toast.LENGTH_SHORT).show();
                             progressBar.setVisibility(View.GONE);
                             imageAdapter.notifyDataSetChanged();
                         }
@@ -237,6 +256,8 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
             }).addOnFailureListener(new OnFailureListener() {
                 @Override
                 public void onFailure(@NonNull final Exception e) {
+                    Toast.makeText(context , "TEst On Failure",Toast.LENGTH_SHORT).show();
+
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -256,22 +277,80 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
     }
 
     private void deleteImage(final GalleryModel model) {
-        imageAdapter.notifyDataSetChanged();
-        fc.setToast("Image Deleted!", context);
+     //   imageAdapter.notifyDataSetChanged();
+       // fc.setToast("Image Deleted!", context);
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
 
-                db.collection(fc.getAdvertKey()).document(userSession.getUserId())
-                        .collection(fc.getAdvertOtherData())
-                        .document(fc.getAdvertMedia())
-                        .update("models", FieldValue.arrayRemove(model));
+                db.collection(OtherConstants.ADVERTISEMENT).document(userSession.getUserId())
+                        .collection(OtherConstants.GALLERY).document(model.getImageID())
+                        .delete()
+
+                        .addOnSuccessListener(new OnSuccessListener<Void>() {
+                            @Override
+                            public void onSuccess(Void aVoid) {
+                                handler.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        fc.setToast("Deleted" , context);
+                                        imageAdapter.notifyDataSetChanged();
+                                    }
+                                });
+
+                            }
+                        }).addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    fc.setToast(" Can't Delet" , context);
+                                }
+                            });
+
+
+
+                    }
+                });
+
+
+
+
 
                 FirebaseStorage store = FirebaseStorage.getInstance();
+                 StorageReference file = store.getReference(OtherConstants.ADVERT_STORAGE)
+                        .child(userSession.getUserId()).child(OtherConstants.GALLERY)
+                        .child(model.getImageID());
+                          file.delete().addOnSuccessListener(new OnSuccessListener<Void>() {
+                              @Override
+                              public void onSuccess(Void aVoid) {
+                                  handler.post(new Runnable() {
+                                      @Override
+                                      public void run() {
 
-                store.getReference(OtherConstants.ADVERT_STORAGE).child(userSession.getUserId()
-                ).child("Media")
-                        .child(model.getImageID()).delete();
+                                          fc.setToast("Deleted" , context);
+                                          imageAdapter.notifyDataSetChanged();
+                                      }
+                                  });
+
+                              }
+                          }).addOnFailureListener(new OnFailureListener() {
+                              @Override
+                              public void onFailure(@NonNull Exception e) {
+
+                                  handler.post(new Runnable() {
+                                      @Override
+                                      public void run() {
+
+                                          fc.setToast(" Can't Delet" , context);
+                                      }
+                                  });
+                              }
+                          });
+
 
             }
         });
@@ -283,17 +362,29 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == IMAGE_PICK_REQUEST && resultCode == RESULT_OK) {
-            if (data != null && data.getClipData() != null) {
+            if (data != null && data.getClipData() != null ) {
                 int count = data.getClipData().getItemCount(); //evaluate the count before the for loop --- otherwise, the count is evaluated every loop.
                 //total selected images should be less than 4
-                if (count < 4 && count > 0) {
+                Toast.makeText(this ,"dsf"+ count , Toast.LENGTH_SHORT).show();
+                if (count < 4 && count >= 0) {
                     for (int i = 0; i < count; i++) {
                         Uri imageUri = data.getClipData().getItemAt(i).getUri();
                         addNewImageIntoList(String.valueOf(imageUri));
+
+                        uploadButton.setVisibility(View.VISIBLE);
                     }
                 } else {
                     fc.setToast("Max limit of images is 3!", context);
                 }
+
+
+            }
+            else if(data!=null && data.getData()!=null){
+
+                Toast.makeText(context , "into 1 ", Toast.LENGTH_SHORT).show();
+                Uri uri = data.getData();
+                addNewImageIntoList(String.valueOf(uri));
+                uploadButton.setVisibility(View.VISIBLE);
 
 
             }
@@ -307,6 +398,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
         updateModel.setImageID(System.currentTimeMillis() + "_" + counter + ".jpeg");
         updateModel.setImageURL(uri);
         updateModel.setUploadTime(System.currentTimeMillis());
+        selectedImages.add(updateModel);
         imageList.add(updateModel);
         imageAdapter.notifyDataSetChanged();
     }
