@@ -2,9 +2,11 @@ package com.example.checkevemaster.gallery;
 
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.ClipData;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -19,36 +21,32 @@ import com.example.checkevemaster.preferencesclasses.UserSession;
 import com.example.checkevemaster.resourceclasses.FinalClass;
 import com.example.checkevemaster.resourceclasses.MySingleton;
 import com.example.checkevemaster.resourceclasses.OtherConstants;
-import com.facebook.drawee.backends.pipeline.Fresco;
 import com.google.android.gms.tasks.Continuation;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
-import com.zfdang.multiple_images_selector.ImagesSelectorActivity;
-import com.zfdang.multiple_images_selector.SelectorSettings;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 public class GalleryActivity extends AppCompatActivity implements GalleryRecycler.clicks {
     private GalleryRecycler imageAdapter;
-    private ImageButton uploadButton;
     private UserSession userSession;
     private FinalClass fc;
     private Context context;
@@ -61,6 +59,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
     private ProgressDialog progressDialog;
     private Handler handler;
     private UserAdverts userAdverts;
+    private FirebaseUser user;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,88 +74,58 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
         fc = MySingleton.getInstance().getFinalClass();
         userAdverts = MySingleton.getInstance().getUserAdverts(context);
         db = FirebaseFirestore.getInstance();
-        //image galery
-        RecyclerView recyclerView = findViewById(R.id.advertProfileImageRecycler);
+        user = FirebaseAuth.getInstance().getCurrentUser();
         imageList = new ArrayList<>();
         selectedImages = new ArrayList<>();
         imageAdapter = new GalleryRecycler(context, imageList, this);
-        recyclerView.setHasFixedSize(true);
-        LinearLayoutManager manager = new LinearLayoutManager(context);
-        manager.setOrientation(RecyclerView.HORIZONTAL);
-        recyclerView.setLayoutManager(manager);
-        recyclerView.setAdapter(imageAdapter);
+
         progressDialog = new ProgressDialog(context);
-        setUpAuth();
+        initOtherViews();
     }
-
-    private void setUpAuth() {
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
-
-        if (userAdverts.getAdvertName() != null) {
-
-            executorService.submit(new Runnable() {
-                @Override
-                public void run() {
-                    initOtherViews();
-                }
-            });
-            executorService.submit(new Runnable() {
-                @Override
-                public void run() {
-                    getImages();
-                }
-            });
-        } else
-            fc.setToast("No images found!", context);
-    }
-
 
     private synchronized void initOtherViews() {
+        //recycler
+        RecyclerView recyclerView = findViewById(R.id.galleryActivityImageRecycler);
+        recyclerView.setHasFixedSize(true);
+        GridLayoutManager manager = new GridLayoutManager(context, 3);
+        recyclerView.setLayoutManager(manager);
+        recyclerView.setAdapter(imageAdapter);
+
+        //gallery button
         FloatingActionButton addImageFAB = findViewById(R.id.advertProfileAddPictureFAB);
-        uploadButton = findViewById(R.id.advertProfileUploadButton);
+        addImageFAB.setOnClickListener(onAddImageButtonClick);
+        // upload buttton
+        ImageButton uploadButton = findViewById(R.id.advertProfileUploadButton);
         uploadButton.setVisibility(View.GONE);
-        addImageFAB.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        Intent intent = new Intent();
-                        intent.setType("image/*");
-                        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                        intent.setAction(Intent.ACTION_GET_CONTENT);
-                        startActivityForResult(Intent.createChooser(intent,"Select Picture"), IMAGE_PICK_REQUEST);
+        uploadButton.setOnClickListener(onUploadButtonClick);
 
-                    }
-                });
-            }
-        });
-        uploadButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                progressDialog.setMessage("Uploading slideshow... " + progrees + "%");
 
-                progressDialog.setCancelable(false);
-                progressDialog.show();
-                uploadImages();
-            }
-        });
     }
+
+    private View.OnClickListener onUploadButtonClick = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            progressDialog.setMessage("Uploading slideshow... " + progrees + "%");
+
+            progressDialog.setCancelable(false);
+            progressDialog.show();
+            uploadImages();
+        }
+    };
+
+    private View.OnClickListener onAddImageButtonClick = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            Intent intent = new Intent();
+            intent.setType("image/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.setAction(Intent.ACTION_GET_CONTENT);
+            startActivityForResult(Intent.createChooser(intent, "Select Picture"), IMAGE_PICK_REQUEST);
+
+        }
+    };
 
     private int counter = 0;
-
-    private void addNewImageIntoList(final String uri) {
-
-        GalleryModel updateModel = new GalleryModel();
-        counter++;
-        updateModel.setImageID(System.currentTimeMillis() + "_" + counter + ".jpeg");
-        updateModel.setImageURL(uri);
-        updateModel.setUploadTime(System.currentTimeMillis());
-        imageList.add(updateModel);
-        imageAdapter.notifyDataSetChanged();
-
-
-    }
 
     private int progrees = 0;
 
@@ -189,7 +158,7 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
 
     private synchronized void uploadImage(final String advert, final GalleryModel model) {
         FirebaseStorage storage = FirebaseStorage.getInstance();
-        Uri img = Uri.fromFile(new File(model.getImageURL()));
+        Uri img = Uri.parse(model.getImageURL());
         final StorageReference file = storage.getReference(OtherConstants.ADVERT_STORAGE)
                 .child(advert).child(OtherConstants.GALLERY)
                 .child(model.getImageID());
@@ -314,11 +283,32 @@ public class GalleryActivity extends AppCompatActivity implements GalleryRecycle
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == IMAGE_PICK_REQUEST && resultCode == RESULT_OK) {
-            if(data!=null && data.getData()!=null){
-                addNewImageIntoList(String.valueOf(data));
+            if (data != null && data.getClipData() != null) {
+                int count = data.getClipData().getItemCount(); //evaluate the count before the for loop --- otherwise, the count is evaluated every loop.
+                //total selected images should be less than 4
+                if (count < 4 && count > 0) {
+                    for (int i = 0; i < count; i++) {
+                        Uri imageUri = data.getClipData().getItemAt(i).getUri();
+                        addNewImageIntoList(String.valueOf(imageUri));
+                    }
+                } else {
+                    fc.setToast("Max limit of images is 3!", context);
+                }
+
+
             }
 
         }
+    }
+
+    private void addNewImageIntoList(final String uri) {
+
+        GalleryModel updateModel = new GalleryModel();
+        updateModel.setImageID(System.currentTimeMillis() + "_" + counter + ".jpeg");
+        updateModel.setImageURL(uri);
+        updateModel.setUploadTime(System.currentTimeMillis());
+        imageList.add(updateModel);
+        imageAdapter.notifyDataSetChanged();
     }
 
 
